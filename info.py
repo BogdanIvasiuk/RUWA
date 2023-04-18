@@ -1,4 +1,20 @@
+from transformers import BertConfig, BertTokenizer, BertForSequenceClassification
+
+"""
+path_base = "E:/Bogs Life/Datasets/HAIM_Ukraine/datasets"
+result_path =path_base+"/"+"results"
+path_base_dataset = "E:/Bogs Life/Datasets/HAIM_Ukraine/datasets"
+"""
+path_base_propaganda_dataset = "/content/drive/MyDrive/Colab Notebooks/HAIM_Ukraine/PTC_CORPUS/datasets"
+path_base= "/content/drive/MyDrive/Colab Notebooks/HAIM_Ukraine"
+result_path =path_base+"/"+"results"
+path_ruwa_dataset ="/content/drive/MyDrive/Colab Notebooks/HAIM_Ukraine/RUWA Dataset"
+
+
+
 sources = ['ukrinform.net', 'censor.net', 'rt.com', 'news-front.info', 'bbc.com', 'euronews.com', 'nbcnews.com', 'edition.cnn.com', 'aljazeera.com', 'reuters.com', 'bloomberg.com']
+
+events = ['Beginning of the invasion', 'Bucha', 'Kramatorsk railway station attack', 'Sinking of the Moskva', 'Siege of Azovstal', 'Kremenchuk', 'Vinnytsia', 'Olenivka', 'Nuclear terrorism', 'Ukrainian eastern counteroffensive', 'Nord Stream pipeline sabotage', 'Crimean Bridge explosion', 'Liberation of Kherson']
 
 
 event_dict = {
@@ -52,3 +68,26 @@ event_dict = {
     "beginning": "Beginning of full-scale invasion in Ukraine",
     "theatre": "Mariupol theatre airstrike"
 }
+
+
+MODEL_CLASSES = {"bert": (BertConfig, BertForSequenceClassification, BertTokenizer)}
+
+
+args = {"data_dir": "datasets/",
+        "model_type": "bert",
+        "model_name": "bert-base-uncased",
+        "output_dir": result_path+"/"+"Task_SI/",
+        "max_seq_length": 128,
+        "train_batch_size": 8,
+        "eval_batch_size": 8,
+        "num_train_epochs": 1,
+        "weight_decay": 0,
+        "learning_rate": 4e-5,
+        "adam_epsilon": 1e-8,
+        "warmup_ratio": 0.06,
+        "warmup_steps": 0,
+        "max_grad_norm": 1.0,
+        "gradient_accumulation_steps": 1,
+        "logging_steps": 50,
+        "save_steps": 2000,
+        "overwrite_output_dir": False}

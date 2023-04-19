@@ -74,6 +74,9 @@ MODEL_CLASSES = {"bert": (BertConfig, BertForSequenceClassification, BertTokeniz
 
 
 args = {"data_dir": "datasets/",
+        "num_labels":2,
+        "finetuning_task":"binary",
+        "device":"cuda",
         "model_type": "bert",
         "model_name": "bert-base-uncased",
         "output_dir": result_path+"/"+"Task_SI/",

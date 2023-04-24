@@ -54,10 +54,8 @@ class PredictPropaganda:
         else:
             propaganda_text = "No propaganda found"
         
-        print(numbered_body)
-        print(propaganda_text)
-        print(propaganda_indices)
-        return numbered_body, propaganda_text, propaganda_indices
+
+        return propaganda_text, numbered_body, propaganda_indices
 
 
 
@@ -84,7 +82,7 @@ class CalculateSimilarity:
     def get_mean_similarity(self, sentence_embs1, sentence_embs2, min_num_sentences=0):
         
         # Calcola la matrice di similarità
-        similarity_matrix = cosine_similarity(sentence_embs1.reshape(-1, 1),sentence_embs2.reshape(-1, 1))
+        similarity_matrix = cosine_similarity(sentence_embs1,sentence_embs2)
 
         
         # Calcola la media delle similitudini

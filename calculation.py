@@ -67,9 +67,11 @@ def put_similarity_score(temp_df, idx, row, mean_score):
 
 
 
+
+
 def calculate_similarity_matrix(event,idx1,row1, temp_df, sentences1, sentence_embs1, folder_path, similarity_calculator):
-        
-    # Calculate the cosine similarity with the other articles in the temporary dataframe
+    try:
+        # Calculate the cosine similarity with the other articles in the temporary dataframe
         for idx2, row2 in temp_df.iterrows():
             if row1['id'] == row2['id'] or row1['source'] == row2['source']:
                 mean_similarity_score=0
@@ -84,6 +86,9 @@ def calculate_similarity_matrix(event,idx1,row1, temp_df, sentences1, sentence_e
             sentence_embs2 = check_similarity_embedings(event, article_id, sentences2, folder_path, similarity_calculator)
             mean_similarity_score = similarity_calculator.get_mean_similarity(sentence_embs1,sentence_embs2,min_num_sentences)
             put_similarity_score(temp_df, idx1, row2, mean_similarity_score)
+    except Exception as e:
+        logging.error(f"Error in calculate_similarity_matrix: {e}. Parameters used: event={event}, idx1={idx1}, row1={row1}, temp_df={temp_df}, sentences1={sentences1}, sentence_embs1={sentence_embs1}, folder_path={folder_path}, similarity_calculator={similarity_calculator}")
+
 
 
 def calculate_similarity_by_source(df_input):
@@ -148,36 +153,45 @@ def export_data(temp_df, event, excel_path, name):
         pivot_table = pd.DataFrame()
         logging.error(f"Error creating pivot table: {e}")
 
+
     # Compute mean value of "freq of propaganda" for each source
     try:
+        temp_df['freq of propaganda'] = temp_df['freq of propaganda'].replace('', 0).astype(float)
         source_mean = temp_df.groupby('source')['freq of propaganda'].mean()
-    except Exception as e:
-        source_mean = pd.Series()
-        logging.error(f"Error computing frequency of propaganda: {e}")
-
-    # Create new DataFrame with "%propaganda" column equal to values of source_mean
-    try:
         propaganda_df = pd.DataFrame({'%propaganda': source_mean.values}, index=source_mean.index)
     except Exception as e:
         propaganda_df = pd.DataFrame()
-        logging.error(f"Error creating propaganda DataFrame: {e}")
+        logging.error(f"Error computing frequency of propaganda: {e}")
+        logging.error(f"The error occurred at index {temp_df['freq of propaganda'].index[temp_df['freq of propaganda'].apply(lambda x: isinstance(x, str))]}")
+    
 
     # Compute number of articles for each source and merge into propaganda_df
     try:
         article_counts = temp_df.groupby('source').size().reset_index(name='num_articles')
         propaganda_df = propaganda_df.merge(article_counts, on='source', how='left')
     except Exception as e:
+        propaganda_df = pd.DataFrame()
         logging.error(f"Error computing article counts: {e}")
+        logging.error(f"The error occurred at index {temp_df.index[temp_df['source'].isnull()].tolist()}")
+    
 
     # Compute mean value of "number of sentences" for each source and merge into propaganda_df
     try:
+        temp_df['number of sentences'] = temp_df['number of sentences'].replace('', 0).astype(int)
         mean_sentences = temp_df.groupby('source')['number of sentences'].mean()
         propaganda_df = propaganda_df.merge(mean_sentences, on='source', how='left')
     except Exception as e:
         logging.error(f"Error computing mean number of sentences: {e}")
+        logging.error(f"The error occurred at index {temp_df['number of sentences'].index[temp_df['number of sentences'].apply(lambda x: isinstance(x, str))]}")
+    
 
     # Construct file path by concatenating excel_path and Excel file name
-    file_path = excel_path+ "/"+ name+ "/"+f'{event.replace(" ", "_")}_results.xlsx'
+    file_name = f"{event.replace(' ', '_')}_results.xlsx"
+    file_path = os.path.join(excel_path, name, file_name)
+
+    if not os.path.exists(os.path.join(excel_path, name)):
+            os.makedirs(os.path.join(excel_path, name))
+    
 
     # Write DataFrames to Excel file
     try:
@@ -192,11 +206,29 @@ def export_data(temp_df, event, excel_path, name):
     # Return None
     return None
 
+def count_empty_sentences(text):
+    text = str(text)  # convert to string
+    sentences = []
+    for p in text.split('\n'):
+        for s in p.split('.'):
+            if s.strip():
+                sentences.append(s.strip())
+            else:
+                sentences.append("EMPTY SENTENCE")
+
+    empty_sentences = [s for s in sentences if s == "EMPTY SENTENCE"]
+    num_empty_sentences = len(empty_sentences)
+    print(f"Numero di frasi vuote: {num_empty_sentences}")
+    print("Frasi vuote:")
+    for s in empty_sentences:
+        print("- " + s)
+
+    return sentences
 
 
 
 
-def Computation(events, df_articles_of_events, model_propaganda, tokenizer, device, result_path,name):
+def Computation(events, df_articles_of_events, model_propaganda, tokenizer, device, result_path, name):
     # Create instances of propaganda predictor and similarity calculator
     propaganda_predictor = PredictPropaganda(model_propaganda, tokenizer, device)
     similarity_calculator = CalculateSimilarity()
@@ -209,16 +241,21 @@ def Computation(events, df_articles_of_events, model_propaganda, tokenizer, devi
     for event in events:
         print(f'Analysis of event:{event}')
         temp_df = df_articles_of_events[df_articles_of_events['Event'] == event].reset_index(drop=True)
-        temp_df = temp_df.dropna(how='any')
         temp_df = temp_df.sort_values('source', ascending=True).reset_index(drop=True)
         add_columns(temp_df)
+        
 
         # Loop through each article in the temporary dataframe
         for idx, row in temp_df.iterrows():
             article_id = row['id']
             # Split the body of the article into sentences
-            sentences = [s.strip() for p in row['body'].split('\n') for s in p.split('.') if s.strip()]
+            #[s.strip() for p in row['body'].split('\n') for s in p.split('.') if s.strip()]
+            sentences = count_empty_sentences(row['body']) 
+
             sentence_embs1 = check_similarity_embedings(event, article_id, sentences, similarity_path, similarity_calculator)
+
             check_propaganda(article_id, idx, temp_df, sentences, propaganda_predictor)
+
             calculate_similarity_matrix(event, idx, row, temp_df, sentences, sentence_embs1, similarity_path, similarity_calculator)
+
             export_data(temp_df, event, result_path,name)
